@@ -782,16 +782,41 @@ function initGame1() {
     });
     container.innerHTML = html;
 
-    // Añadir eventos a los dropzones
+    // Añadir eventos a los dropzones (tap-tap y drag&drop nativo)
     document.querySelectorAll('.dropzone').forEach(dz => {
-        dz.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-        dz.addEventListener('drop', handleDrop);
-        dz.addEventListener('click', handleDropzoneClick);
-        // Touch drag support
-        dz.addEventListener('touchend', handleDropzoneClick);
+        dz.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            dz.style.borderColor = 'var(--orange)';
+        });
+        dz.addEventListener('dragleave', () => { dz.style.borderColor = ''; });
+        dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.style.borderColor = '';
+            const word = e.dataTransfer.getData('text/plain');
+            if (word) dropWordIntoDz(dz, word);
+            clearBankSelection();
+        });
+        dz.addEventListener('click', e => {
+            e.stopPropagation();
+            if (g1Checked) return;
+            if (selectedWordBankItem) {
+                dropWordIntoDz(dz, selectedWordBankItem.dataset.word);
+                clearBankSelection();
+            }
+        });
+        dz.addEventListener('touchend', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (g1Checked) return;
+            if (selectedWordBankItem) {
+                dropWordIntoDz(dz, selectedWordBankItem.dataset.word);
+                clearBankSelection();
+            }
+        });
     });
 
-    // Banco de palabras: las 10 elegidas, en orden aleatorio
+    // Banco de palabras: las elegidas, en orden aleatorio
     const bankWords = g1ChosenBlanks.map(cb => cb.bw).sort(() => Math.random() - 0.5);
     bankWords.forEach(word => {
         const el = document.createElement('div');
@@ -799,65 +824,78 @@ function initGame1() {
         el.textContent = word;
         el.draggable = true;
         el.dataset.word = word;
+
+        // Drag nativo (desktop)
         el.addEventListener('dragstart', e => {
+            if (el.classList.contains('hidden') || g1Checked) { e.preventDefault(); return; }
             e.dataTransfer.setData('text/plain', word);
             e.dataTransfer.effectAllowed = 'move';
-            selectWordForTap(el);
+            selectedWordBankItem = el;
+            document.querySelectorAll('.draggable-word').forEach(w => w.classList.remove('selected'));
+            el.classList.add('selected');
         });
-        el.addEventListener('click', () => selectWordForTap(el));
+        el.addEventListener('dragend', () => { setTimeout(clearBankSelection, 80); });
+
+        // Tap-tap
+        const handleBankTap = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (el.classList.contains('hidden') || g1Checked) return;
+            if (selectedWordBankItem === el) { clearBankSelection(); return; }
+            document.querySelectorAll('.draggable-word').forEach(w => w.classList.remove('selected'));
+            selectedWordBankItem = el;
+            el.classList.add('selected');
+            reproducirSonidoTap();
+        };
+        el.addEventListener('click', handleBankTap);
+        el.addEventListener('touchend', handleBankTap);
+
         bank.appendChild(el);
     });
+
+    // Click en fondo del contenedor: deseleccionar
+    document.getElementById('textContainer').addEventListener('click', () => clearBankSelection());
 
     updateProgress('progressFill1', 0);
 }
 
-function selectWordForTap(el) {
-    if (el.classList.contains('hidden') || g1Checked) return;
-    document.querySelectorAll('.draggable-word').forEach(w => {
-        w.classList.remove('selected');
-    });
-    selectedWordBankItem = el;
-    el.classList.add('selected');
-    reproducirSonidoTap();
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    let word = e.dataTransfer.getData('text/plain');
-    if (!word && selectedWordBankItem) word = selectedWordBankItem.dataset.word;
-    if (word) placeWordInDropzone(this, word);
+function clearBankSelection() {
     document.querySelectorAll('.draggable-word').forEach(w => w.classList.remove('selected'));
     selectedWordBankItem = null;
 }
 
-function handleDropzoneClick() {
+function dropWordIntoDz(dz, word) {
     if (g1Checked) return;
-    if (selectedWordBankItem) {
-        placeWordInDropzone(this, selectedWordBankItem.dataset.word);
-        document.querySelectorAll('.draggable-word').forEach(w => w.classList.remove('selected'));
-        selectedWordBankItem = null;
+    // Si el dropzone ya tiene una palabra, devolverla al banco primero
+    const existing = dz.querySelector('.placed-word');
+    if (existing) {
+        returnWordToBank(existing.dataset.word);
+        dz.innerHTML = '';
+        dz.classList.remove('filled');
     }
-}
-
-function placeWordInDropzone(dz, word) {
-    if (dz.hasChildNodes()) return;
+    // Ocultar del banco
     const bankItem = Array.from(document.querySelectorAll('.draggable-word'))
         .find(el => el.dataset.word === word && !el.classList.contains('hidden'));
-    if (bankItem) bankItem.classList.add('hidden');
+    if (!bankItem) return;
+    bankItem.classList.add('hidden');
 
     const span = document.createElement('span');
     span.className = 'placed-word';
     span.textContent = word;
     span.dataset.word = word;
-    span.onclick = e => {
+
+    const removeFromDz = (e) => {
         if (g1Checked) return;
         e.stopPropagation();
+        e.preventDefault();
         returnWordToBank(word);
         dz.innerHTML = '';
         dz.classList.remove('filled');
         reproducirSonidoTap();
     };
-    dz.innerHTML = '';
+    span.addEventListener('click', removeFromDz);
+    span.addEventListener('touchend', removeFromDz);
+
     dz.appendChild(span);
     dz.classList.add('filled');
     reproducirSonidoTap();
