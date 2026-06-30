@@ -116,7 +116,7 @@
         .draggable-word:hover { transform:scale(1.03); box-shadow:0 4px 8px rgba(0,0,0,.15); }
 
         .text-area { font-size:1.05rem; line-height:2.4; color:#333; margin-bottom:1rem; }
-        .text-paragraph { margin-bottom:.5rem; }
+        .text-paragraph { margin-bottom:.85rem; }
 
         .dropzone { display:inline-flex; align-items:center; justify-content:center; min-width:90px; height:34px;
             border:2px dashed #a0aec0; background-color:#e6fffa; border-radius:6px; margin:0 4px;
@@ -778,7 +778,7 @@ function initGame1() {
                 paraHtml = paraHtml.replace(`{${bw}}`, bw);
             }
         });
-        html += `<p class="text-paragraph">${paraHtml}</p><br>`;
+        html += `<p class="text-paragraph">${paraHtml}</p>`;
     });
     container.innerHTML = html;
 
